@@ -1,0 +1,15 @@
+name: time-varying-rhgs
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - numpy
+  - matplotlib
+  - conda-forge::cvxpy
+  - conda-forge::casadi
+  - MOSEK::mosek
+  - conda-forge::jupyterlab
+  - ipywidgets
+  - nbconvert
+  - nbformat
