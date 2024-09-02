@@ -10,12 +10,11 @@
 from .system_base import SystemBase
 
 class LinearSystem(SystemBase):
-
+    
     def __init__(self, params):
-        self.update_params(params)
+        super().__init__(params)
 
-    def update_params(self, params):
-        super().update_params(params)
+        # Check that system matrices have the correct shape
         assert params.A.shape == (self.n, self.n), 'A must have shape (n,n)'
         assert params.B.shape == (self.n, self.m), 'B must have shape (n,m)'
         assert params.C.shape[1] == self.n, 'C must have shape (num_output, n)'

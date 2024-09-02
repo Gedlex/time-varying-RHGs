@@ -19,7 +19,6 @@ class ControllerBase(ABC):
         self._init_problem(sys, params, *args, **kwargs)
         self.output_mapping = self._define_output_mapping()
 
-    @classmethod
     @abstractmethod 
     def _init_problem(self, sys, params, *args, **kwargs):
         '''
@@ -27,7 +26,7 @@ class ControllerBase(ABC):
         '''
         raise NotImplementedError
 
-    @classmethod
+    @abstractmethod
     def _set_additional_parameters(self, additional_parameters):
         '''
         Some controllers require setting additional parameters of the optimization problem beside just setting the initial condition
@@ -37,9 +36,8 @@ class ControllerBase(ABC):
 
         This method will be called to set the additional parameters right before calling the solver
         '''
-        return NotImplemented
+        return NotImplementedError
     
-    @classmethod
     @abstractmethod 
     def _define_output_mapping(self):
         '''
@@ -56,7 +54,7 @@ class ControllerBase(ABC):
         
         raise NotImplementedError
 
-    def solve(self, x, additional_parameters={}, verbose=False, solver=None):
+    def solve(self, x, additional_parameters=None, verbose=False, solver=None):
         if self.prob != None:
             if not hasattr(self, 'x_0'):
                 raise Exception(
@@ -65,7 +63,8 @@ class ControllerBase(ABC):
             if isinstance(self.prob,cvxpy.Problem):
                 try:
                     self.x_0.value = x
-                    self._set_additional_parameters(additional_parameters)
+                    if additional_parameters is not None:
+                        self._set_additional_parameters(additional_parameters)
                     self.prob.solve(verbose=verbose, solver=solver)
 
                     if self.prob.status != cvxpy.OPTIMAL:
@@ -86,10 +85,11 @@ class ControllerBase(ABC):
                     opts = {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0}
                 self.prob.solver('ipopt', opts)
 
-                # casadi will raise an exception if solve() detects an infeasible problem
+                # Casadi will raise an exception if solve() detects an infeasible problem
                 try:
                     self.prob.set_value(self.x_0, x)
-                    self._set_additional_parameters(additional_parameters)
+                    if additional_parameters is not None:
+                        self._set_additional_parameters(additional_parameters)
                     sol = self.prob.solve()
                     if sol.stats()['success']:
                         error_msg = None

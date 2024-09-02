@@ -8,39 +8,43 @@
 '''
 
 import numpy as np
+import casadi
 
 class EMPCParams:
-    
+
     class ctrl:
         name = 'EMPC'
-        N = 10
+        # Horizon
+        N = 8
+
+        # State constraints
+        def h_x(t, x):
+            condition = casadi.fmod(t, 24) < 12
+            constraint1 = np.array([1, -1]).reshape(-1, 1) @ x - np.array([2, 2]).reshape(-1, 1)
+            constraint2 = np.array([1, -1]).reshape(-1, 1) @ x - np.array([1/2, 1/2]).reshape(-1, 1)
+            
+            return casadi.if_else(condition, constraint1, constraint2)
+
+        # Input constraints
+        A_u = np.array([1,-1]).reshape(-1,1)
+        b_u = np.array([3, 3]).reshape(-1,1)
 
     class sys:
-        # system dimensions
+        # System dimensions
         n = 1
         m = 1
         dt = 1
 
-        # dynamics matrices
-        A = 1
-        B = 1
-        C = 1
-        D = 0
+        # Nonlinear dynamics
+        def f(x, u, t=0):
+            # Generate a random disturbance
+            w = -2*np.sin(t*np.pi/12) + (0.5*np.random.rand(1) - 0.25)
 
-        # state constraints
-        A_x = np.array([1,-1]).reshape(-1,1)
-        b_x = np.array([2, 2]).reshape(-1,1)
-
-        # input constraints
-        A_u = np.array([1,-1]).reshape(-1,1)
-        b_u = np.array([3, 3]).reshape(-1,1)
-
-        # noise description
-        A_w = None
-        b_w = None
-
+            # Return the next state
+            return x + u + w
+        
     class sim:
-        num_steps = 30
+        num_steps = 50
         num_traj = 1
         x_0 = 0
 
