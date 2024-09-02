@@ -7,4 +7,4 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 '''
 
-from .params_empc import EMPCParams
+from .params_gruene import EMPCParams
