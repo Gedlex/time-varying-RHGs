@@ -29,7 +29,7 @@ class EMPC(ControllerBase):
         # Define objective
         objective = 0
         for k in range(params.N):
-            objective += self._stage_cost(self.x[:,k], self.u[:,k])
+            objective += params.stage_cost(self.x[:,k], self.u[:,k])
         self.prob.minimize(objective)
         
         # Define constraints
@@ -40,14 +40,11 @@ class EMPC(ControllerBase):
 
             # State and input constraints
             self.prob.subject_to(params.h_x(self.t + k, self.x[:,k]) <= 0)
-            self.prob.subject_to(params.A_u @ self.u[:,k] <= params.b_u)
+            self.prob.subject_to(params.h_u(self.t + k, self.u[:,k]) <= 0)
         self.prob.subject_to(params.h_x(self.t + params.N, self.x[:,params.N]) <= 0)
         
         # Set NLP solver
         self.prob.solver('ipopt')
-
-    def _stage_cost(self, x, u):
-        return u.T @ u
     
     def _set_additional_parameters(self, t):
         self.prob.set_value(self.t, t)

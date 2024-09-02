@@ -17,7 +17,13 @@ class EMPCParams:
         # Horizon
         N = 8
 
+        # Define stage cost
+        @staticmethod
+        def stage_cost(x, u):
+            return u.T @ u
+
         # State constraints
+        @staticmethod
         def h_x(t, x):
             condition = casadi.fmod(t, 24) < 12
             constraint1 = np.array([1, -1]).reshape(-1, 1) @ x - np.array([2, 2]).reshape(-1, 1)
@@ -26,8 +32,8 @@ class EMPCParams:
             return casadi.if_else(condition, constraint1, constraint2)
 
         # Input constraints
-        A_u = np.array([1,-1]).reshape(-1,1)
-        b_u = np.array([3, 3]).reshape(-1,1)
+        def h_u(t, u):
+            return np.array([1,-1]).reshape(-1,1) @ u - np.array([3, 3]).reshape(-1,1)
 
     class sys:
         # System dimensions
