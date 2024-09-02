@@ -15,14 +15,25 @@ This repository contains the Python code that accompanies the master thesis:
 
 1. Download and install [Python](https://www.python.org/downloads/)
 2. Install Casadi by following the instructions from the official [Casadi](https://web.casadi.org/get/) documentation
-3. (optional) Create a [Conda](https://docs.anaconda.com/miniconda/miniconda-install/) environment to make sure all the necessary packages are installed.
+3. Create a [Conda](https://docs.anaconda.com/miniconda/miniconda-install/) environment to make sure all the necessary packages are installed
 
     ```bash
         conda env create --name time-varying-rhgs --file=environments.yml
         conda activate time-varying-rhgs
     ```
 
+   or install the packages manually.
 4. Clone this repository or download the code as a ZIP archive and extract it to a folder of your choice.
+
+## Running Jupyter Notebooks
+
+Start a jupyter notebook server by running
+
+```bash
+    jupyter notebook 
+```
+
+This requires that you have installed all the packages from `environment.yml`.
 
 ## License
 
