@@ -45,8 +45,8 @@ class EMPCParams:
         
     class sim:
         num_steps = 50
-        num_traj = 1
-        x_0 = 0
+        num_traj = 10
+        x_0 = np.linspace(-2,2,10)
 
     class plot:
         show = True
