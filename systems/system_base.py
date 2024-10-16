@@ -51,12 +51,12 @@ class SystemBase(ABC):
         return output
 
     @abstractmethod
-    def f(self, x, u):
+    def f(self, x, u, *args, **kwargs):
         '''Nominal system update function to be implemented by the inherited class'''
         raise NotImplementedError
 
     @abstractmethod
-    def h(self, x, u):
+    def h(self, x, u, *args, **kwargs):
         '''Nominal system output function to be implemented by the inherited class'''
         raise NotImplementedError
 

@@ -34,7 +34,7 @@ class NonlinearSystem(SystemBase):
         self._check_u_shape(u)  # make sure u is m dimensional
         return self._f(x, u, *args, **kwargs)
 
-    def h(self, x, u):
+    def h(self, x, u, *args, **kwargs):
         self._check_x_shape(x)  # make sure x is n dimensional
         self._check_u_shape(u)  # make sure u is m dimensional
         return x

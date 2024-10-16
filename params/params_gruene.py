@@ -10,7 +10,7 @@
 import numpy as np
 import casadi
 
-class EMPCParams:
+class EMPCParamsGruene:
 
     class ctrl:
         name = 'EMPC'

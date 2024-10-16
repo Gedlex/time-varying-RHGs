@@ -54,4 +54,3 @@ class EMPC(ControllerBase):
             'control': self.u,
             'state': self.x,
         }
-
