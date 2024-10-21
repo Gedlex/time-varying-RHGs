@@ -25,13 +25,13 @@ class EMPC(ControllerBase):
         self.u = self.prob.variable(sys.m, params.N)
         self.x_0 = self.prob.parameter(sys.n)
         self.t = self.prob.parameter(1)
-        
+
         # Define objective
         objective = 0
         for k in range(params.N):
-            objective += params.stage_cost(self.x[:,k], self.u[:,k])
+            objective += params.stage_cost(self.x[:,k], self.u[:,k], t=self.t+k)
         self.prob.minimize(objective)
-        
+
         # Define constraints
         self.prob.subject_to(self.x[:,0] == self.x_0)
         for k in range(params.N):
@@ -39,13 +39,13 @@ class EMPC(ControllerBase):
             self.prob.subject_to(self.x[:,k+1] == sys.f(self.x[:,k], self.u[:,k], t=self.t+k))
 
             # State and input constraints
-            self.prob.subject_to(params.h_x(self.t + k, self.x[:,k]) <= 0)
-            self.prob.subject_to(params.h_u(self.t + k, self.u[:,k]) <= 0)
-        self.prob.subject_to(params.h_x(self.t + params.N, self.x[:,params.N]) <= 0)
-        
+            self.prob.subject_to(params.h_x(self.x[:,k], t=self.t+k) <= 0)
+            self.prob.subject_to(params.h_u(self.u[:,k], t=self.t+k) <= 0)
+        self.prob.subject_to(params.h_x(self.x[:,params.N], t=self.t+params.N) <= 0)
+
         # Set NLP solver
         self.prob.solver('ipopt')
-    
+
     def _set_additional_parameters(self, t):
         self.prob.set_value(self.t, t)
 

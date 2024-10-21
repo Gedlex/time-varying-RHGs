@@ -11,20 +11,20 @@ import numpy as np
 import casadi
 
 class EMPCParamsGruene:
-
+    name = 'EMPC'
+    
     class ctrl:
-        name = 'EMPC'
         # Horizon
         N = 8
 
         # Define stage cost
         @staticmethod
-        def stage_cost(x, u):
+        def stage_cost(x, u, t=None):
             return u.T @ u
 
         # State constraints
         @staticmethod
-        def h_x(t, x):
+        def h_x(x, t):
             condition = casadi.fmod(t, 24) < 12
             constraint1 = np.array([1, -1]).reshape(-1, 1) @ x - np.array([2, 2]).reshape(-1, 1)
             constraint2 = np.array([1, -1]).reshape(-1, 1) @ x - np.array([1/2, 1/2]).reshape(-1, 1)
@@ -32,7 +32,7 @@ class EMPCParamsGruene:
             return casadi.if_else(condition, constraint1, constraint2)
 
         # Input constraints
-        def h_u(t, u):
+        def h_u(u, t):
             return np.array([1,-1]).reshape(-1,1) @ u - np.array([3, 3]).reshape(-1,1)
 
     class sys:
@@ -52,7 +52,7 @@ class EMPCParamsGruene:
     class sim:
         num_steps = 50
         num_traj = 10
-        x_0 = np.linspace(-2,2,10)
+        x_0 = np.linspace(-2,2,10).reshape(-1,1)
 
     class plot:
         show = True

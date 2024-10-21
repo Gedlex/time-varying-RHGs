@@ -17,43 +17,53 @@ class LinearSystem(SystemBase):
     def __init__(self, params):
         super().__init__(params)
 
-        # Check that system matrices have the correct shape
-        assert params.A.shape[-2::] == (self.n, self.n), 'A must have shape (n,n)'
-        assert params.B.shape[-2::] == (self.n, self.m), 'B must have shape (n,m)'
-        assert params.C.shape[-1] == self.n, 'C must have shape (num_output, n)'
-        assert params.D.shape[-1] == self.m, 'D must have shape (num_output, m)'
-        self.A = params.A.reshape(-1, self.n, self.n)
-        self.B = params.B.reshape(-1, self.n, self.m)
-        self.C = params.C.reshape(-1, params.C.shape[-2], self.n)
-        self.D = params.D.reshape(-1, params.D.shape[-2], self.m)
+        # Check shape of system matrices
+        assert params.A.shape[-2::] == (self.n, self.n), 'A must have shape (,n,n)'
+        assert params.B.shape[-2::] == (self.n, self.m), 'B must have shape (t,n,m)'
+        assert params.C.shape[-1] == self.n, 'C must have shape (t, num_output, n)'
+        assert params.D.shape[-1] == self.m, 'D must have shape (t, num_output, m)'
 
         # Determine if system is time-varying
-        self.time_varying = self.A.shape[0] > 1
+        self.A = params.A.reshape(-1, self.n, self.n)
+        self.T = self.A.shape[0]
+        self.time_varying = self.T > 1
+
+        # Reshape system matrices
+        self.B = params.B.reshape(self.T, self.n, self.m)
+        self.C = params.C.reshape(self.T, params.C.shape[-2], self.n)
+        self.D = params.D.reshape(self.T, params.D.shape[-2], self.m)
+        
+        # Check shape of opional offset vector
+        if hasattr(params, 'd'):
+            assert params.d.size == self.T * self.n, 'd must have shape (t, n,)'
+            self.d = params.d.reshape(self.T, self.n, 1)
+        else:
+            self.d = np.zeros((self.T, self.n, 1))
 
     def f(self, x, u, t=None):
         self._check_x_shape(x)  # make sure x is n dimensional
         self._check_u_shape(u)  # make sure u is m dimensional
 
         # Get system matrices at time t
-        A, B = self._get_system_matrices(t, self.A, self.B)
+        A_t, B_t, d_t = self._get_system_matrices(t, self.A, self.B, self.d)
 
-        return A @ x.reshape(self.n, 1) + B @ u.reshape(self.m, 1)
+        return A_t @ x.reshape((self.n, 1)) + B_t @ u.reshape((self.m, 1)) + d_t
 
     def h(self, x, u, t=None):
         self._check_x_shape(x)  # make sure x is n dimensional
         self._check_u_shape(u)  # make sure u is m dimensional
 
         # Get system matrices at time t
-        C, D = self._get_system_matrices(t, self.C, self.D)
+        C_t, D_t = self._get_system_matrices(t, self.C, self.D)
         
-        return C @ x.reshape(self.n, 1) + D @ u.reshape(self.m, 1)
+        return C_t @ x.reshape(self.n, 1) + D_t @ u.reshape(self.m, 1)
     
     def _wrap_time_index(self, t):
         if isinstance(t, (casadi.MX, casadi.SX)):
-            return casadi.remainder(t, self.A.shape[0])
+            return casadi.remainder(t, self.T)
         
         elif isinstance(t, int):
-            return t % self.A.shape[0]
+            return t % self.T
         
         elif isinstance(t, cvxpy.Parameter):
             raise NotImplementedError("Time indexing with cvxpy parameters is not supported yet.")

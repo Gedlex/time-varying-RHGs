@@ -8,3 +8,4 @@
 '''
 
 from .params_gruene import EMPCParamsGruene
+from .params_dsm import DSMPCParams
