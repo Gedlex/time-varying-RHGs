@@ -20,9 +20,9 @@ class SystemBase(ABC):
         # Se time step
         self.dt = params.dt        
         
-    def step(self, x, u, w=None):
+    def step(self, x, u, t=None, w=None):
         '''Advance system from state x with input u, adding a noise/disturbance'''
-        x_next = self.f(x, u)
+        x_next = self.f(x, u) if t is None else self.f(x, u, t=t)
 
         # Make sure that x_next is a numpy array
         if not isinstance(x_next, np.ndarray):

@@ -19,38 +19,43 @@ class EMPC(ControllerBase):
     def _init_problem(self, sys, params):
         # Define the EMPC problem
         self.prob = casadi.Opti()
+        self.x_0 = None
+
+    def _setup_problem(self, t):
+        # Define the EMPC problem
+        del self.prob
+        self.prob = casadi.Opti() # Check if this is needed
 
         # Define decision variables
-        self.x = self.prob.variable(sys.n, params.N + 1)
-        self.u = self.prob.variable(sys.m, params.N)
-        self.x_0 = self.prob.parameter(sys.n)
-        self.t = self.prob.parameter(1)
+        self.x = self.prob.variable(self.sys.n, self.params.N + 1)
+        self.u = self.prob.variable(self.sys.m, self.params.N)
+        self.x_0 = self.prob.parameter(self.sys.n)
 
         # Define objective
         objective = 0
-        for k in range(params.N):
-            objective += params.stage_cost(self.x[:,k], self.u[:,k], t=self.t+k)
+        for k in range(self.params.N):
+            objective += self.params.stage_cost(self.x[:,k], self.u[:,k], t=t+k)
         self.prob.minimize(objective)
 
         # Define constraints
         self.prob.subject_to(self.x[:,0] == self.x_0)
-        for k in range(params.N):
+        for k in range(self.params.N):
             # Dynamics
-            self.prob.subject_to(self.x[:,k+1] == sys.f(self.x[:,k], self.u[:,k], t=self.t+k))
+            self.prob.subject_to(self.x[:,k+1] == self.sys.f(self.x[:,k], self.u[:,k], t=t+k))
 
             # State and input constraints
-            self.prob.subject_to(params.h_x(self.x[:,k], t=self.t+k) <= 0)
-            self.prob.subject_to(params.h_u(self.u[:,k], t=self.t+k) <= 0)
-        self.prob.subject_to(params.h_x(self.x[:,params.N], t=self.t+params.N) <= 0)
+            self.prob.subject_to(self.params.h_x(self.x[:,k], t=t+k) <= 0)
+            self.prob.subject_to(self.params.h_u(self.u[:,k], t=t+k) <= 0)
+        self.prob.subject_to(self.params.h_x(self.x[:,self.params.N], t=t+self.params.N) <= 0)
 
-        # Set NLP solver
-        self.prob.solver('ipopt')
+        # Setup NLP solver
+        self.prob.solver('ipopt', {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0})
 
     def _set_additional_parameters(self, t):
-        self.prob.set_value(self.t, t)
+        self._setup_problem(t)
 
-    def _define_output_mapping(self):
-        return {
-            'control': self.u,
-            'state': self.x,
-        }
+    def _output_mapping(self, output):
+        if output == 'control':
+            return self.u
+        elif output == 'state':
+            return self.x

@@ -8,6 +8,7 @@
 '''
 
 from abc import ABC, abstractmethod
+from typing import Union, Literal
 import cvxpy
 import casadi
 
@@ -17,7 +18,6 @@ class ControllerBase(ABC):
         self.sys = sys
         self.params = params
         self._init_problem(sys, params, *args, **kwargs)
-        self.output_mapping = self._define_output_mapping()
 
     @abstractmethod 
     def _init_problem(self, sys, params, *args, **kwargs):
@@ -39,7 +39,7 @@ class ControllerBase(ABC):
         return NotImplementedError
     
     @abstractmethod 
-    def _define_output_mapping(self):
+    def _output_mapping(self, output: Union[Literal['control'], Literal['state']]):
         '''
         This method must be implemented by the controller to define the mapping from the optimization
         variables to the outputs.
@@ -51,7 +51,6 @@ class ControllerBase(ABC):
             'state':   # planned state trajectory
         }
         '''
-        
         raise NotImplementedError
 
     def solve(self, x, additional_parameters=None, verbose=False, solver=None):
@@ -62,9 +61,9 @@ class ControllerBase(ABC):
             
             if isinstance(self.prob,cvxpy.Problem):
                 try:
-                    self.x_0.value = x
                     if additional_parameters is not None:
                         self._set_additional_parameters(additional_parameters)
+                    self.x_0.value = x
                     self.prob.solve(verbose=verbose, solver=solver)
 
                     if self.prob.status != cvxpy.OPTIMAL:
@@ -72,13 +71,13 @@ class ControllerBase(ABC):
                         control, state = (None, None)
                     else:
                         error_msg = None
-                        control = self.output_mapping['control'].value
-                        state = self.output_mapping['state'].value
+                        control = self._output_mapping('control').value
+                        state = self._output_mapping('state').value
                 except Exception as e:
                     error_msg = 'Solver encountered an error. {0}'.format(e)
                     control, state = (None, None)
 
-            elif isinstance(self.prob, casadi.Opti):
+            elif isinstance(self.prob,casadi.Opti):
                 if verbose:
                     opts = {'ipopt.print_level': 5, 'print_time': 1}
                 else:
@@ -87,14 +86,14 @@ class ControllerBase(ABC):
 
                 # Casadi will raise an exception if solve() detects an infeasible problem
                 try:
-                    self.prob.set_value(self.x_0, x)
                     if additional_parameters is not None:
                         self._set_additional_parameters(additional_parameters)
+                    self.prob.set_value(self.x_0, x)
                     sol = self.prob.solve()
                     if sol.stats()['success']:
                         error_msg = None
-                        control = sol.value(self.output_mapping['control'])
-                        state = sol.value(self.output_mapping['state'])
+                        control = sol.value(self._output_mapping('control'))
+                        state = sol.value(self._output_mapping('state'))
 
                     else:
                         error_msg = 'Solver was not successful with return status: {0}'.format(sol.stats()['return_status'])

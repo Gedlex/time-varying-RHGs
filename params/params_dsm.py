@@ -34,34 +34,34 @@ class DSMPCParams:
             self.T = params.T
 
             # Define cost parameters
-            gamma_1   =   0.05 * np.ones((params.T, params.M))
-            gamma_2   =   0.01 * np.ones((params.T, params.M))
-            rho_1 = 1/params.M * np.ones((params.T, params.M))
-            rho_2 = 1/params.M * np.ones((params.T, params.M))
+            gamma_1 = 5 * np.ones((params.T, params.M))
+            gamma_2 =0.1* np.ones((params.T, params.M))
+            rho_1  =  1 * np.ones((params.T, params.M)) # [$/kWh]
+            rho_2  = 0.5* np.ones((params.T, params.M)) # [$/kWh]
             for i in [6,7,8,9]:
-                rho_1[i::12] *= 2
+                rho_1[i::12] *= 1.2
                 rho_2[i::12] *= 2
 
             # Define constraint parameters
             q_max = 15 * np.ones([params.T, params.M])
-            zeta_max=20* np.ones([params.T, params.M])
+            zeta_max=10* np.ones([params.T, params.M])
             zeta_max[-1] = 1
             zeta_min = -zeta_max
             s_max = 10.5*np.ones([params.T, params.M])
-            s_min = -s_max
-            e_max = 15 * np.ones([params.T, params.M])  # [kW]
-            e_min = 0.5* np.ones([params.T, params.M])  # [kW]
+            s_min =-s_max
+            e_max = 15 * np.ones([params.T, params.M]) # [kW]
+            e_min = 0.05*np.ones([params.T, params.M]) # [kW]
             l_max = 15 * np.ones([params.T, params.M])
-            l_min = 0.5* np.ones([params.T, params.M])
-            L_max = 0.5* l_max.sum(axis=1)
-            L_min = 0.05*l_min.sum(axis=1)
+            l_min = 0  * np.ones([params.T, params.M])
+            L_max = 1  * l_max.sum(axis=1)
+            L_min = 0  * l_min.sum(axis=1)
 
             # Load data for newyork
             data = DSMPCParams._load_data(city='newyork')
 
             # Define start and end date
             self.start_date = pd.Timestamp('2019-05-02 00:00:00', tz='US/Eastern')
-            self.end_date = self.start_date + pd.Timedelta(hours = params.T)
+            self.end_date = self.start_date + pd.Timedelta(hours = params.T-1)
 
             # Filter data
             data = data.loc[self.start_date:self.end_date, :]
@@ -79,36 +79,24 @@ class DSMPCParams:
 
         # Define stage cost
         def stage_cost(self, x, u, t):
-            # Wrap time index around
-            t = DSMPCParams._wrap_time_index(t, self.T)
+            # Wrap time index
+            idx = DSMPCParams._wrap_time_index(t, self.T)
 
-            # Get cost matrices at time t
-            Q_t, R_t, c_t = DSMPCParams._evaluate_matrix_at_time_t(t, self.Q, self.R, self.c)
-
-            return 1/2 * x.T @ Q_t @ x + 1/2 * u.T @ R_t @ u + c_t @ u
-            # return 1/2 * x.T @ self.Q[0,:] @ x + 1/2 * u.T @ self.R[0,:] @ u + self.c[0,:] @ u
+            return 1/2 * x.T @ self.Q[idx,:] @ x + 1/2 * u.T @ self.R[idx,:] @ u + self.c[idx,:] @ u
 
         # State constraints
         def h_x(self, x, t):
-            # Wrap time index around
-            t = DSMPCParams._wrap_time_index(t, self.T)
-
-            # Get constraint at time t
-            X_t, c_xt = DSMPCParams._evaluate_matrix_at_time_t(t, self.X, self.c_x)
+            # Wrap time index
+            idx = DSMPCParams._wrap_time_index(t, self.T)
             
-            return X_t @ x - c_xt
-            # return self.X[0,:] @ x - self.c_x[0,:]
+            return self.X[idx,:] @ x - self.c_x[idx,:]
 
         # Input constraints
         def h_u(self, u, t):
-            # Wrap time index around
-            t = DSMPCParams._wrap_time_index(t, self.T)
+            # Wrap time index
+            idx = DSMPCParams._wrap_time_index(t, self.T)
 
-            # Get constraint at time t
-            U_t, c_ut = DSMPCParams._evaluate_matrix_at_time_t(t, self.U, self.c_u)
-            
-            return U_t @ u - c_ut
-            # return self.U[0,:] @ u - self.c_u[0,:]
+            return self.U[idx,:] @ u - self.c_u[idx,:]
         
         @staticmethod
         def _compute_cost_matrices(solar, passive_load, gamma_1, gamma_2, rho_1, rho_2, params):
@@ -217,7 +205,7 @@ class DSMPCParams:
     class sim:
         num_steps = 48
         num_traj = 1
-        x_0 = np.zeros((num_traj ,1, 20))
+        x_0 = [np.zeros((20,))]
 
     class plot:
         show = True
@@ -256,35 +244,17 @@ class DSMPCParams:
         consumption = filtered_data.consumption.to_numpy()
 
         # Compute passive load
-        passive_load = consumption[:-1, 0:num_passive_agents].sum(axis=1)
+        passive_load = consumption[:, 0:num_passive_agents].sum(axis=1)
 
         # Get solar data
-        solar = filtered_data.all_solar[:-1].to_numpy()
+        solar = filtered_data.all_solar[:].to_numpy()
 
         return consumption, solar, passive_load, filtered_data, selected_agents
     
     @staticmethod
-    def _evaluate_matrix_at_time_t(t, *args):
-        # Check if t is a casadi parameter
-        if isinstance(t, (casadi.MX, casadi.SX)):
-            # Compute one-hot encoded system matrices
-            Z_t = [np.zeros(Z.shape[1::]) for Z in args]
-            for i in range(args[0].shape[0]):
-                for j in range(len(args)):
-                    Z_t[j] += casadi.if_else(t == i, args[j][i,:], 0)
-        
-        # Check if t is an integer
-        elif isinstance(t, int):
-            # Get system matrices at time t
-            Z_t = [Z[t,:] for Z in args]
-
-        return Z_t
-    
-    @staticmethod
     def _wrap_time_index(t, T):
-        if isinstance(t, (casadi.MX, casadi.SX)):
-            return casadi.remainder(t, T)
-        elif isinstance(t, int):
+        if isinstance(t, int):
             return t % T
-        else:
-            raise TypeError(f"Unsupported type {type(t)} for time index t.")
+        elif T > 1:
+            raise ValueError(f'Invalid time index: {t} of type {type(t)}. Please provide an integer time index for time-varying systems.')
+        return 0

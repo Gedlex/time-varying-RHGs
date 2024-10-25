@@ -1,19 +1,21 @@
 name: time-varying-rhgs
 channels:
   - conda-forge
-  - defaults
+  - MOSEK
 dependencies:
   - python=3.9
-  - numpy
-  - scipy
-  - pandas # for plotly
-  - plotly
-  - matplotlib
-  - conda-forge::cvxpy
-  - conda-forge::casadi
-  - MOSEK::mosek
-  - conda-forge::jupyterlab
-  - ipywidgets
-  - nbconvert
-  - nbformat
-  - tqdm
+  - numpy=2.0.2
+  - scipy=1.13.1
+  - pandas=2.2.3
+  - plotly=5.24.1
+  - matplotlib=3.9.2
+  - MOSEK::mosek=10.2.6
+  - conda-forge::cvxpy=1.5.3
+  - conda-forge::casadi=3.6.7
+  - conda-forge::jupyterlab=4.2.5
+  - ipywidgets=8.1.5
+  - nbconvert=7.16.4
+  - nbformat=5.10.4
+  - tqdm=4.66.5
+  - seaborn=0.13.2            # for Sophie's plots
+  - conda-forge::cvxopt=1.3.2 # for Sophie's code
