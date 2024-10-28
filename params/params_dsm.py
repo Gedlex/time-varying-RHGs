@@ -20,7 +20,7 @@ class DSMPCParams:
         self.M = 10
         self.M_passive = 5
 
-        # Define period length of system
+        # Define period length of system and constraints
         self.T = 24
 
         # Create system and controller parameters
@@ -66,6 +66,7 @@ class DSMPCParams:
             # Filter data
             data = data.loc[self.start_date:self.end_date, :]
             self.consumption, self.solar, self.passive_load, self.data, _ = DSMPCParams._filter_data(data, params.M, params.M_passive, remove_agents=['950', '1240'])
+            print(f'Agents: {_}')
 
             # Scale down solar data (as too much solar energy is produced)
             self.solar *= 0.35
@@ -232,7 +233,7 @@ class DSMPCParams:
     @staticmethod
     def _filter_data(data, num_agents, num_passive_agents, remove_agents = []):            
         # Get all agent ids, excluding those in remove_agents
-        agent_ids = [agent for agent in data.columns.levels[1] if agent not in remove_agents]
+        agent_ids = [agent for agent in data.columns.get_level_values(1).unique() if agent not in remove_agents]
 
         # Select the first `num_agents` from agent_ids
         selected_agents = agent_ids[:num_agents]
