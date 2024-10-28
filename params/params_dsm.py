@@ -13,7 +13,7 @@ import casadi
 from scipy.linalg import block_diag
 
 class DSMPCParams:
-    def __init__(self):
+    def __init__(self, T=24, **kwargs):
         self.name = 'DSMPC'
 
         # Define number of agents (active and passive)
@@ -21,16 +21,16 @@ class DSMPCParams:
         self.M_passive = 5
 
         # Define period length of system and constraints
-        self.T = 24
+        self.T = T
 
         # Create system and controller parameters
-        self.ctrl = DSMPCParams.ctrl(self)
-        self.sys = DSMPCParams.sys(self)
+        self.ctrl = DSMPCParams.ctrl(self, **kwargs)
+        self.sys = DSMPCParams.sys(self, **kwargs)
 
     class ctrl:
-        def __init__(self, params):
+        def __init__(self, params, N=24, **kwargs):
             # Define horizon
-            self.N = 24
+            self.N = N
             self.T = params.T
 
             # Define cost parameters
@@ -66,7 +66,7 @@ class DSMPCParams:
             # Filter data
             data = data.loc[self.start_date:self.end_date, :]
             self.consumption, self.solar, self.passive_load, self.data, _ = DSMPCParams._filter_data(data, params.M, params.M_passive, remove_agents=['950', '1240'])
-            print(f'Agents: {_}')
+            # print(f'Agents: {_}')
 
             # Scale down solar data (as too much solar energy is produced)
             self.solar *= 0.35
@@ -185,7 +185,7 @@ class DSMPCParams:
             return X, c_x, U, c_u
 
     class sys:
-        def __init__(self, params):
+        def __init__(self, params, **kwargs):
             # Define system dimensions
             self.n = 2 * params.M
             self.m = 2 * params.M
@@ -204,15 +204,9 @@ class DSMPCParams:
             self.D = np.zeros((self.T, self.n, self.m))
         
     class sim:
+        num_traj = 5
         num_steps = 48
-        num_traj = 1
-        x_0 = [np.zeros((20,))]
-
-    class plot:
-        show = True
-        color = 'red'
-        alpha = 1.0
-        linewidth = 1.0
+        x_0 = [np.tile(np.array([10/4*i, 15/4*i]), 10) for i in range(num_traj)]
 
     @staticmethod
     def _load_data(city='newyork'):
