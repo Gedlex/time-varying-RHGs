@@ -53,18 +53,18 @@ class ControllerBase(ABC):
         '''
         raise NotImplementedError
 
-    def solve(self, x, additional_parameters=None, verbose=False, solver=None):
+    def solve(self, x, additional_parameters=None, verbose=False, solver=None, **kwargs):
         if self.prob != None:
             if not hasattr(self, 'x_0'):
                 raise Exception(
                     'The MPC problem must define the initial condition as an optimization parameter self.x_0')
-            
+
             if isinstance(self.prob,cvxpy.Problem):
                 try:
                     if additional_parameters is not None:
                         self._set_additional_parameters(additional_parameters)
                     self.x_0.value = x
-                    self.prob.solve(verbose=verbose, solver=solver)
+                    self.prob.solve(solver=solver, verbose=verbose, **kwargs)
 
                     if self.prob.status != cvxpy.OPTIMAL:
                         error_msg = 'Solver did not achieve an optimal solution. Status: {0}'.format(self.prob.status)
@@ -78,18 +78,23 @@ class ControllerBase(ABC):
                     control, state = (None, None)
 
             elif isinstance(self.prob,casadi.Opti):
-                if verbose:
-                    opts = {'ipopt.print_level': 5, 'print_time': 1}
-                else:
-                    opts = {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0}
-                self.prob.solver('ipopt', opts)
-
                 # Casadi will raise an exception if solve() detects an infeasible problem
-                try:
+                try :
                     if additional_parameters is not None:
                         self._set_additional_parameters(additional_parameters)
                     self.prob.set_value(self.x_0, x)
+
+                    # Set solver options and solve
+                    if 'opts' in kwargs:
+                        opts = kwargs['opts']
+                    else:
+                        if verbose:
+                            opts = {'ipopt.print_level': 5, 'print_time': 1}
+                        else:
+                            opts = {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0}
+                    self.prob.solver('ipopt', opts)
                     sol = self.prob.solve()
+
                     if sol.stats()['success']:
                         error_msg = None
                         control = sol.value(self._output_mapping('control'))

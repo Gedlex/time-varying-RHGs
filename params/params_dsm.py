@@ -9,7 +9,7 @@
 import os
 import numpy as np
 import pandas as pd
-import casadi
+import cvxpy as cp
 from scipy.linalg import block_diag
 
 class DSMPCParams:
@@ -28,7 +28,7 @@ class DSMPCParams:
         self.sys = DSMPCParams.sys(self, **kwargs)
 
     class ctrl:
-        def __init__(self, params, N=24, **kwargs):
+        def __init__(self, params, N=24, verbose=False, **kwargs):
             # Define horizon
             self.N = N
             self.T = params.T
@@ -66,7 +66,6 @@ class DSMPCParams:
             # Filter data
             data = data.loc[self.start_date:self.end_date, :]
             self.consumption, self.solar, self.passive_load, self.data, _ = DSMPCParams._filter_data(data, params.M, params.M_passive, remove_agents=['950', '1240'])
-            # print(f'Agents: {_}')
 
             # Scale down solar data (as too much solar energy is produced)
             self.solar *= 0.35
@@ -78,12 +77,23 @@ class DSMPCParams:
             self.X, self.c_x, self.U, self.c_u = self.compute_constraint_matrices(self.solar, self.passive_load, q_max,zeta_max, zeta_min,
                                                                                   s_max, s_min, e_max, e_min, l_max, l_min, L_max, L_min, params)
 
+            # Print information
+            if verbose:
+                print(f'Agents: {_}')
+                print(f'Loaded data for {params.M} agents from {self.start_date} to {self.end_date}')
+                print(f'Cost matrices: Q shape: {self.Q.shape}, R shape: {self.R.shape}, c shape: {self.c.shape}')
+                print(f'Constraint matrices: X shape: {self.X.shape}, c_x shape: {self.c_x.shape}, U shape: {self.U.shape}, c_u shape: {self.c_u.shape}')
+                DSMPCParams._check_convexity(Q=self.Q, R=self.R)
+
         # Define stage cost
         def stage_cost(self, x, u, t):
             # Wrap time index
             idx = DSMPCParams._wrap_time_index(t, self.T)
-
-            return 1/2 * x.T @ self.Q[idx,:] @ x + 1/2 * u.T @ self.R[idx,:] @ u + self.c[idx,:] @ u
+            
+            if isinstance(x, cp.Expression):
+                return 1/2 * cp.quad_form(x, self.Q[idx,:]) + 1/2 * cp.quad_form(u, self.R[idx,:]) + self.c[idx,:] @ u
+            else:
+                return 1/2 * x.T @ self.Q[idx,:] @ x + 1/2 * u.T @ self.R[idx,:] @ u + self.c[idx,:] @ u
 
         # State constraints
         def h_x(self, x, t):
@@ -253,3 +263,31 @@ class DSMPCParams:
         elif T > 1:
             raise ValueError(f'Invalid time index: {t} of type {type(t)}. Please provide an integer time index for time-varying systems.')
         return 0
+    
+    @staticmethod
+    def _check_convexity(**kwargs):
+        results = {}
+        for key, value in kwargs.items():
+            # Check positive semi-definiteness for each time t
+            check = np.array([DSMPCParams._is_pos_semi_def(value[k,:]) for k in range(value.shape[0])])
+
+            # Print results
+            if np.all(check):
+                print(f'{key} is positive semi-definite for all times.')
+            else:
+                print(f'\033[93mWarning: {key} is not positive semi-definite at times t = {np.where(~check)[0]}.\033[0m')
+
+            # Add to dictionary
+            results[key] = check
+        return results
+
+    @staticmethod 
+    def _is_pos_semi_def(A):
+        if np.array_equal(A, A.T):
+            try:
+                np.linalg.cholesky(A + 1E-14*np.eye(A.shape[0]))
+                return True
+            except np.linalg.LinAlgError:
+                return False
+        else:
+            return ValueError('Matrix is not symmetric')
