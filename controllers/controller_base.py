@@ -27,14 +27,11 @@ class ControllerBase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _set_additional_parameters(self, additional_parameters):
+    def _set_parameters(self, **kwargs):
         '''
-        Some controllers require setting additional parameters of the optimization problem beside just setting the initial condition
+        Most controllers require setting parameters of the optimization problem like for example the initial condition
 
-        For controllers which require additional parameters, they must override this method
-        to set the value of those parameters
-
-        This method will be called to set the additional parameters right before calling the solver
+        This method will be called to set parameters right before calling the solver
         '''
         return NotImplementedError
     
@@ -53,18 +50,12 @@ class ControllerBase(ABC):
         '''
         raise NotImplementedError
 
-    def solve(self, x, additional_parameters=None, verbose=False, solver=None, **kwargs):
+    def solve(self, verbose=False, solver=None, opts=None, **kwargs):
         if self.prob != None:
-            if not hasattr(self, 'x_0'):
-                raise Exception(
-                    'The MPC problem must define the initial condition as an optimization parameter self.x_0')
-
             if isinstance(self.prob,cvxpy.Problem):
                 try:
-                    if additional_parameters is not None:
-                        self._set_additional_parameters(additional_parameters)
-                    self.x_0.value = x
-                    self.prob.solve(solver=solver, verbose=verbose, **kwargs)
+                    self._set_parameters(**kwargs)
+                    self.prob.solve(solver=solver, verbose=verbose)
 
                     if self.prob.status != cvxpy.OPTIMAL:
                         error_msg = 'Solver did not achieve an optimal solution. Status: {0}'.format(self.prob.status)
@@ -80,14 +71,10 @@ class ControllerBase(ABC):
             elif isinstance(self.prob,casadi.Opti):
                 # Casadi will raise an exception if solve() detects an infeasible problem
                 try :
-                    if additional_parameters is not None:
-                        self._set_additional_parameters(additional_parameters)
-                    self.prob.set_value(self.x_0, x)
+                    self._set_parameters(**kwargs)
 
                     # Set solver options and solve
-                    if 'opts' in kwargs:
-                        opts = kwargs['opts']
-                    else:
+                    if opts is None:
                         if verbose:
                             opts = {'ipopt.print_level': 5, 'print_time': 1}
                         else:

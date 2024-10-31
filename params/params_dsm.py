@@ -213,11 +213,6 @@ class DSMPCParams:
             self.C = np.stack([ np.eye(self.n, self.n) for t in range(params.T)])
             self.D = np.zeros((self.T, self.n, self.m))
         
-    class sim:
-        num_traj = 5
-        num_steps = 48
-        x_0 = [np.tile(np.array([10/4*i, 15/4*i]), 10) for i in range(num_traj)]
-
     @staticmethod
     def _load_data(city='newyork'):
         # Get class directory

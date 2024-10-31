@@ -18,18 +18,16 @@ class CPEMPC(ControllerBase):
         super().__init__(sys, params)
 
     def _init_problem(self, sys, params):
-        # Define the EMPC problem
+        # Allocate placeholder problem
         self.prob = cp.Problem(cp.Minimize(0))
-        self.x_0 = None
 
-    def _setup_problem(self, t):
+    def _setup_problem(self, x_0=None, t=0):
         # Clear existing problem
         del self.prob
 
         # Define decision variables
         self.x = cp.Variable((self.sys.n, self.params.N + 1))
         self.u = cp.Variable((self.sys.m, self.params.N))
-        self.x_0 = cp.Parameter((self.sys.n))
 
         # Define objective
         objective = 0.0
@@ -37,7 +35,7 @@ class CPEMPC(ControllerBase):
             objective += self.params.stage_cost(self.x[:,k], self.u[:,k], t=t+k)
         
         # Define constraints
-        constraints = [self.x[:, 0] == self.x_0]
+        constraints = [] if x_0 is None else [self.x[:, 0] == x_0]
         for k in range(self.params.N):
             # Dynamics
             constraints += [self.x[:,k+1] == self.sys.f(self.x[:,k], self.u[:,k], t=t+k).reshape((self.sys.n,))]
@@ -50,8 +48,8 @@ class CPEMPC(ControllerBase):
         # Setup solver
         self.prob = cp.Problem(cp.Minimize(objective), constraints)
 
-    def _set_additional_parameters(self, t):
-        self._setup_problem(t)
+    def _set_parameters(self, **kwargs):
+        self._setup_problem(**kwargs)
 
     def _output_mapping(self, output):
         if output == 'control':
