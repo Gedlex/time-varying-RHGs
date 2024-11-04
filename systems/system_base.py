@@ -17,7 +17,7 @@ class SystemBase(ABC):
         self.n = params.n   # state dimension
         self.m = params.m   # input dimension
         
-        # Se time step
+        # Set time step
         self.dt = params.dt        
         
     def step(self, x, u, t=None, w=None):
@@ -40,9 +40,9 @@ class SystemBase(ABC):
 
         return x_next
 
-    def get_output(self, x, u):
+    def get_output(self, x, u, t=None):
         '''Evaluate output function for state x and input u'''
-        output = self.h(x, u)
+        output = self.h(x, u) if t is None else self.h(x, u, t=t)
 
         # Make sure that output is a numpy array
         if not isinstance(output, np.ndarray):

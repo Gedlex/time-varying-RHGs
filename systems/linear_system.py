@@ -31,29 +31,19 @@ class LinearSystem(SystemBase):
         self.C = params.C.reshape(self.T, params.C.shape[-2], self.n)
         self.D = params.D.reshape(self.T, params.D.shape[-2], self.m)
         
-        # Check opional offset vector
-        if hasattr(params, 'd'):
-            assert params.d.size == self.T * self.n, 'd must have shape (t, n,)'
-            self.d = params.d.reshape(self.T, self.n, 1)
-        else:
-            self.d = np.zeros((self.T, self.n, 1))
+        # Get opional offset vector
+        self.d = getattr(params, 'd', np.zeros((self.T, self.n))).reshape(self.T, self.n, 1)
 
     def f(self, x, u, t=None):
         self._check_x_shape(x)  # make sure x is n dimensional
         self._check_u_shape(u)  # make sure u is m dimensional
-
-        # Wrap time index
-        idx = self._wrap_time_index(t)
-
+        idx = self._wrap_time_index(t) # Wrap time index
         return self.A[idx,:] @ x.reshape((self.n, 1)) + self.B[idx,:] @ u.reshape((self.m, 1)) + self.d[idx,:]
     
     def h(self, x, u, t=None):
         self._check_x_shape(x)  # make sure x is n dimensional
         self._check_u_shape(u)  # make sure u is m dimensional
-
-        # Wrap time index
-        idx = self._wrap_time_index(t)
-        
+        idx = self._wrap_time_index(t) # Wrap time index
         return self.C[idx,:] @ x.reshape((self.n, 1)) + self.D[idx,:] @ u.reshape((self.m, 1))
     
     def _wrap_time_index(self, t):
