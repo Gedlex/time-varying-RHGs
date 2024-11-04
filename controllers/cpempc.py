@@ -9,7 +9,6 @@
 
 from .controller_base import ControllerBase
 import cvxpy as cp
-import numpy as np
 
 class CPEMPC(ControllerBase):
     '''Construct and solve EMPC Problem'''

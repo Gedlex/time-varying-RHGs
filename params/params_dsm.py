@@ -28,33 +28,38 @@ class DSMPCParams:
         self.sys = DSMPCParams.sys(self, **kwargs)
 
     class ctrl:
-        def __init__(self, params, N=24, verbose=False, **kwargs):
+        def __init__(self, params, verbose=False, **kwargs):
             # Define horizon
-            self.N = N
+            self.N = 24
             self.T = params.T
 
             # Define cost parameters
-            gamma_1 = 5 * np.ones((params.T, params.M))
-            gamma_2 =0.1* np.ones((params.T, params.M))
-            rho_1  =  1 * np.ones((params.T, params.M)) # [$/kWh]
-            rho_2  = 0.5* np.ones((params.T, params.M)) # [$/kWh]
+            self.gamma_1 = 5 * np.ones((params.T, params.M))
+            self.gamma_2 = 0.1*np.ones((params.T, params.M))
+            self.rho_1   = 1 * np.ones((params.T, params.M)) # [$/kWh]
+            self.rho_2   = 0.5*np.ones((params.T, params.M)) # [$/kWh]
             for i in [6,7,8,9]:
-                rho_1[i::12] *= 1.2
-                rho_2[i::12] *= 2
+                self.rho_1[i::12] *= 1.2
+                self.rho_2[i::12] *= 2
 
             # Define constraint parameters
-            q_max = 15 * np.ones([params.T, params.M])
-            zeta_max=10* np.ones([params.T, params.M])
-            zeta_max[-1] = 1
-            zeta_min = -zeta_max
-            s_max = 10.5*np.ones([params.T, params.M])
-            s_min =-s_max
-            e_max = 15 * np.ones([params.T, params.M]) # [kW]
-            e_min = 0.05*np.ones([params.T, params.M]) # [kW]
-            l_max = 15 * np.ones([params.T, params.M])
-            l_min = 0  * np.ones([params.T, params.M])
-            L_max = 1  * l_max.sum(axis=1)
-            L_min = 0  * l_min.sum(axis=1)
+            self.q_max =  15* np.ones([params.T, params.M])
+            self.zeta_max=10* np.ones([params.T, params.M])
+            self.zeta_max[-1,:] = 1
+            self.zeta_min = -self.zeta_max
+            self.s_max  = 10.5*np.ones([params.T, params.M])
+            self.s_min  =-self.s_max
+            self.e_max  = 15 * np.ones([params.T, params.M]) # [kW]
+            self.e_min  = 0.05*np.ones([params.T, params.M]) # [kW]
+            self.l_max  = 15 * np.ones([params.T, params.M])
+            self.l_min  =  0 * np.ones([params.T, params.M])
+            self.L_max  =  1 * self.l_max.sum(axis=1)
+            self.L_min  =  1 * self.l_min.sum(axis=1)
+
+            # Update attributes with keyword arguments
+            for key, value in kwargs.items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
 
             # Load data for newyork
             data = DSMPCParams._load_data(city='newyork')
@@ -71,11 +76,10 @@ class DSMPCParams:
             self.solar *= 0.35
 
             # Compute cost matrices
-            self.Q, self.R, self.c = self._compute_cost_matrices(self.solar, self.passive_load, gamma_1, gamma_2, rho_1, rho_2, params)
+            self.Q, self.R, self.c = self._compute_cost_matrices(params)
 
             # Compute constraint matrices
-            self.X, self.c_x, self.U, self.c_u = self.compute_constraint_matrices(self.solar, self.passive_load, q_max,zeta_max, zeta_min,
-                                                                                  s_max, s_min, e_max, e_min, l_max, l_min, L_max, L_min, params)
+            self.X, self.c_x, self.U, self.c_u = self._compute_constraint_matrices(params)
 
             # Print information
             if verbose:
@@ -109,32 +113,31 @@ class DSMPCParams:
 
             return self.U[idx,:] @ u - self.c_u[idx,:]
         
-        @staticmethod
-        def _compute_cost_matrices(solar, passive_load, gamma_1, gamma_2, rho_1, rho_2, params):
+        def _compute_cost_matrices(self, params):
             # Compute cost matrices
             c = [[ np.ndarray for _ in range(params.M)] for _ in range(params.T)]
             Q = [[ np.ndarray for _ in range(params.M)] for _ in range(params.T)]
             R = [[[np.ndarray for _ in range(params.M)] for _ in range(params.M)] for _ in range(params.T)]
             for t in range(params.T):
                 # Compute uncontrolled aggregate load
-                agg_load = -solar[t,:].sum() + passive_load[t]
+                agg_load = -self.solar[t,:].sum() + self.passive_load[t]
 
                 # Loop across rows
                 for i in range(params.M):
                     # Compute quadratic state cost matrix
-                    Q[t][i] = 2 * np.array([[gamma_1[t,i], 0], [0, gamma_2[t,i]]])
+                    Q[t][i] = 2 * np.array([[self.gamma_1[t,i], 0], [0, self.gamma_2[t,i]]])
 
                     # Compute linear input cost vector
-                    const = rho_1[t,i] * agg_load - rho_2[t,i] * solar[t,i] + rho_2[t,i]
+                    const = self.rho_1[t,i] * agg_load - self.rho_2[t,i] * self.solar[t,i] + self.rho_2[t,i]
                     c[t][i] = const * np.ones((1, 2))
 
                     # Loop accros columns
                     for j in range(params.M):
                         # Compute quadratic input cost matrix
                         if i == j:
-                            R[t][i][j] = 2 * rho_1[t,i] * np.ones((2, 2))
+                            R[t][i][j] = 2 * self.rho_1[t,i] * np.ones((2, 2))
                         else:
-                            R[t][i][j] = rho_1[t,i] * np.ones((2, 2))
+                            R[t][i][j] = self.rho_1[t,i] * np.ones((2, 2))
 
                     # Stack columns
                     R[t][i] = np.hstack(R[t][i])
@@ -154,15 +157,14 @@ class DSMPCParams:
             c = np.stack(c)
             return Q, R, c
         
-        @staticmethod
-        def compute_constraint_matrices(solar, passive_load, q_max, zeta_max, zeta_min, s_max, s_min, e_max, e_min, l_max, l_min, L_max, L_min, params):
+        def _compute_constraint_matrices(self, params):
             # Compute state constraints
             X = [[np.ndarray for _ in range(params.M)] for _ in range(params.T)]
             c_x = [[np.ndarray for _ in range(params.M)] for _ in range(params.T)]
             for t in range(params.T):
                 for v in range(params.M):
                     X[t][v] = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
-                    c_x[t][v] = np.array([zeta_max[t,v], -zeta_min[t,v], q_max[t,v], 0])
+                    c_x[t][v] = np.array([self.zeta_max[t,v], -self.zeta_min[t,v], self.q_max[t,v], 0])
 
                 # Stack constraints in a block diagonal matrix
                 X[t] = block_diag(*X[t])
@@ -178,16 +180,16 @@ class DSMPCParams:
             for t in range(params.T):
                 for v in range(params.M):
                     U[t][v] = np.array([[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]])
-                    c_u[t][v] = np.array([e_max[t,v], -e_min[t,v], s_max[t,v], -s_min[t,v], l_max[t,v] + solar[t,v], -l_min[t,v] - solar[t,v]])
+                    c_u[t][v] = np.array([self.e_max[t,v], -self.e_min[t,v], self.s_max[t,v], -self.s_min[t,v], self.l_max[t,v] + self.solar[t,v], -self.l_min[t,v] - self.solar[t,v]])
 
                 # Stack constraints in a block diagonal matrix
                 U[t] = block_diag(*U[t])
                 c_u[t] = np.hstack(c_u[t])
 
                 # Add coupling constraints / aggregate load limit
-                agg_load = -solar[t,:].sum() + passive_load[t]
+                agg_load = -self.solar[t,:].sum() + self.passive_load[t]
                 U[t] = np.vstack([U[t], np.ones((1, 2*params.M)), -np.ones((1, 2*params.M))])
-                c_u[t] = np.hstack([c_u[t], np.array([L_max[t] - agg_load, -L_min[t] + agg_load])])
+                c_u[t] = np.hstack([c_u[t], np.array([self.L_max[t] - agg_load, -self.L_min[t] + agg_load])])
             
             # Stack time-varying matrices
             U = np.stack(U)
