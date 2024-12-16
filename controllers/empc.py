@@ -8,46 +8,59 @@
 '''
 
 from .controller_base import ControllerBase
+from typing import Union, Literal
+import cvxpy as cp
 import casadi
 
 class EMPC(ControllerBase):
     '''Construct and solve EMPC Problem'''
 
-    def __init__(self, sys, params):
-        super().__init__(sys, params)
+    def __init__(self, sys, params, **kwargs):
+        super().__init__(sys, params, **kwargs)
 
-    def _init_problem(self, sys, params):
+    def _init_problem(self, sys, params, solver: Union[Literal['cvxpy'], Literal['casadi']] = 'cvxpy'):
         # Allocate placeholder problem
-        self.prob = casadi.Opti()
+        if solver == 'casadi':
+            self.prob = casadi.Opti()
+        else:
+            self.prob = cp.Problem(cp.Minimize(0))
 
-    def _setup_problem(self, x_0=None, t=0):
-        # Clear existing problem
-        del self.prob
-
+    def _setup_problem(self, x_0=None, x_T=None, t=0):
         # Define decision variables
-        self.prob = casadi.Opti()
-        self.x = self.prob.variable(self.sys.n, self.params.N + 1)
-        self.u = self.prob.variable(self.sys.m, self.params.N)
+        if isinstance(self.prob,casadi.Opti):
+            del self.prob
+            self.prob = casadi.Opti()
+            self.x = self.prob.variable(self.sys.n, self.params.N + 1)
+            self.u = self.prob.variable(self.sys.m, self.params.N)
+        else:
+            del self.prob
+            self.x = cp.Variable((self.sys.n, self.params.N + 1))
+            self.u = cp.Variable((self.sys.m, self.params.N))
 
         # Define objective
         objective = 0
         for k in range(self.params.N):
             objective += self.params.stage_cost(self.x[:,k], self.u[:,k], t=t+k)
-        self.prob.minimize(objective)
-
+        
         # Define constraints
-        if x_0 is not None: self.prob.subject_to(self.x[:,0] == x_0)
+        constraints = [] if x_0 is None else [self.x[:, 0] == x_0]
         for k in range(self.params.N):
             # Dynamics
-            self.prob.subject_to(self.x[:,k+1] == self.sys.f(self.x[:,k], self.u[:,k], t=t+k))
+            constraints += [self.x[:,k+1].reshape((self.sys.n,1)) == self.sys.f(self.x[:,k], self.u[:,k], t=t+k)]
 
             # State and input constraints
-            self.prob.subject_to(self.params.h_x(self.x[:,k], t=t+k) <= 0)
-            self.prob.subject_to(self.params.h_u(self.u[:,k], t=t+k) <= 0)
-        self.prob.subject_to(self.params.h_x(self.x[:,self.params.N], t=t+self.params.N) <= 0)
+            constraints += [self.params.h_x(self.x[:,k], t=t+k) <= 0]
+            constraints += [self.params.h_u(self.u[:,k], t=t+k) <= 0]
+        constraints += [self.params.h_x(self.x[:,self.params.N], t=t+self.params.N) <= 0]
+        constraints += [] if x_T is None else [self.x[:,-1] == x_T]
 
-        # Setup NLP solver
-        self.prob.solver('ipopt', {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0})
+        # Setup solver
+        if hasattr(self, 'prob'):
+            self.prob.minimize(objective)
+            self.prob.subject_to(constraints)
+            self.prob.solver('ipopt', {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0})
+        else:
+            self.prob = cp.Problem(cp.Minimize(objective), constraints)
 
     def _set_parameters(self, **kwargs):
         self._setup_problem(**kwargs)

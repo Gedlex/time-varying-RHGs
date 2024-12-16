@@ -31,7 +31,7 @@ class LinearSystem(SystemBase):
         self.C = params.C.reshape(self.T, params.C.shape[-2], self.n)
         self.D = params.D.reshape(self.T, params.D.shape[-2], self.m)
         
-        # Get opional offset vector
+        # Get optional offset vector
         self.d = getattr(params, 'd', np.zeros((self.T, self.n))).reshape(self.T, self.n, 1)
 
     def f(self, x, u, t=None):

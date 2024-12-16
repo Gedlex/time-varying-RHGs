@@ -156,7 +156,7 @@ class DSMPCParams:
             R = np.stack(R)
             c = np.stack(c)
             return Q, R, c
-        
+
         def _compute_constraint_matrices(self, params):
             # Compute state constraints
             X = [[np.ndarray for _ in range(params.M)] for _ in range(params.T)]
@@ -278,7 +278,7 @@ class DSMPCParams:
             results[key] = check
         return results
 
-    @staticmethod 
+    @staticmethod
     def _is_pos_semi_def(A):
         if np.array_equal(A, A.T):
             try:

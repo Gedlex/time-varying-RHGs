@@ -8,4 +8,3 @@
 '''
 
 from .empc import EMPC
-from .cpempc import CPEMPC
