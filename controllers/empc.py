@@ -19,23 +19,23 @@ class EMPC(ControllerBase):
         super().__init__(sys, params, **kwargs)
 
     def _init_problem(self, sys, params, solver: Union[Literal['cvxpy'], Literal['casadi']] = 'cvxpy'):
-        # Allocate placeholder problem
+        # Allocate placeholder problem (casadi or cvxpy)
         if solver == 'casadi':
             self.prob = casadi.Opti()
         else:
             self.prob = cp.Problem(cp.Minimize(0))
 
-    def _setup_problem(self, x_0=None, x_T=None, t=0):
-        # Define decision variables
-        if isinstance(self.prob,casadi.Opti):
-            del self.prob
-            self.prob = casadi.Opti()
-            self.x = self.prob.variable(self.sys.n, self.params.N + 1)
-            self.u = self.prob.variable(self.sys.m, self.params.N)
-        else:
+    def _setup_problem(self, t = 0, x_0 = None, x_T = None, periodic = False):
+        # Define decision variables (cvxpy or casadi)
+        if isinstance(self.prob,cp.Problem):
             del self.prob
             self.x = cp.Variable((self.sys.n, self.params.N + 1))
             self.u = cp.Variable((self.sys.m, self.params.N))
+        else:
+            del self.prob
+            self.prob = casadi.Opti()
+            self.x = self.prob.variable(self.sys.n, self.params.N + 1)
+            self.u = self.prob.variable(self.sys.m, self.params.N)            
 
         # Define objective
         objective = 0
@@ -52,15 +52,17 @@ class EMPC(ControllerBase):
             constraints += [self.params.h_x(self.x[:,k], t=t+k) <= 0]
             constraints += [self.params.h_u(self.u[:,k], t=t+k) <= 0]
         constraints += [self.params.h_x(self.x[:,self.params.N], t=t+self.params.N) <= 0]
-        constraints += [] if x_T is None else [self.x[:,-1] == x_T]
+        constraints += [] if x_T is None  else [self.x[:,self.params.N] == x_T]
+        constraints += [] if not periodic else [self.x[:,0] == self.x[:,self.params.N]]
 
-        # Setup solver
-        if hasattr(self, 'prob'):
+        # Setup solver (cvxpy or casadi)
+        if isinstance(self.x, cp.Expression):
+            self.prob = cp.Problem(cp.Minimize(objective), constraints)
+        else:
             self.prob.minimize(objective)
             self.prob.subject_to(constraints)
             self.prob.solver('ipopt', {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0})
-        else:
-            self.prob = cp.Problem(cp.Minimize(objective), constraints)
+
 
     def _set_parameters(self, **kwargs):
         self._setup_problem(**kwargs)
