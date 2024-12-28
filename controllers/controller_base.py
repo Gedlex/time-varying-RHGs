@@ -50,24 +50,25 @@ class ControllerBase(ABC):
         '''
         raise NotImplementedError
 
-    def solve(self, verbose=False, solver=None, opts=None, **kwargs):
+    def solve(self, solver=None, opts={}, verbose=False, **kwargs):
         if self.prob != None:
             if isinstance(self.prob,cvxpy.Problem):
                 try:
                     self._set_parameters(**kwargs)
-                    self.prob.solve(solver=solver, verbose=verbose)
+                    self.prob.solve(solver=solver, **opts, verbose=verbose)
 
-                    if self.prob.status != cvxpy.OPTIMAL:
-                        error_msg = 'Solver did not achieve an optimal solution. Status: {0}'.format(self.prob.status)
-                        control, state, dual_values = (None, None, None)
-                    else:
+                    if self.prob.status == cvxpy.OPTIMAL:
                         error_msg = None
                         control = self._output_mapping('control').value
                         state = self._output_mapping('state').value
                         dual_values = list(self.prob.solution.dual_vars.values())
+                        solver_stats = self.prob.solver_stats
+                    else:
+                        error_msg = 'Solver did not achieve an optimal solution. Status: {0}'.format(self.prob.status)
+                        control, state, dual_values, solver_stats = (None, None, None, None)
                 except Exception as e:
                     error_msg = 'Solver encountered an error. {0}'.format(e)
-                    control, state, dual_values = (None, None, None)
+                    control, state, dual_values, solver_stats = (None, None, None, None)
 
             elif isinstance(self.prob,casadi.Opti):
                 # Casadi will raise an exception if solve() detects an infeasible problem
@@ -75,12 +76,13 @@ class ControllerBase(ABC):
                     self._set_parameters(**kwargs)
 
                     # Set solver options and solve
-                    if opts is None:
+                    if opts is {}:
                         if verbose:
                             opts = {'ipopt.print_level': 5, 'print_time': 1}
                         else:
                             opts = {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0}
-                    self.prob.solver('ipopt', opts)
+                    solver = 'ipopt' if solver is None else solver
+                    self.prob.solver(solver, opts)
                     sol = self.prob.solve()
 
                     if sol.stats()['success']:
@@ -88,16 +90,17 @@ class ControllerBase(ABC):
                         control = sol.value(self._output_mapping('control'))
                         state = sol.value(self._output_mapping('state'))
                         dual_values = sol.value(self.prob.lam_g)
+                        solver_stats = sol.stats()
                     else:
                         error_msg = 'Solver was not successful with return status: {0}'.format(sol.stats()['return_status'])
-                        control, state, dual_values = (None, None, None)
+                        control, state, dual_values, solver_stats = (None, None, None, None)
                 except Exception as e:
                     error_msg = 'Solver encountered an error. {0}'.format(e)
-                    control, state, dual_values = (None, None, None)
+                    control, state, dual_values, solver_stats = (None, None, None, None)
 
             else:
                 raise Exception('Optimization problem type not supported!')
         else:
             raise Exception('Optimization problem is not initialised!')
 
-        return control, state, error_msg, dual_values
+        return control, state, error_msg, dual_values, solver_stats
