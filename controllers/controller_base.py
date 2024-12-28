@@ -59,14 +59,15 @@ class ControllerBase(ABC):
 
                     if self.prob.status != cvxpy.OPTIMAL:
                         error_msg = 'Solver did not achieve an optimal solution. Status: {0}'.format(self.prob.status)
-                        control, state = (None, None)
+                        control, state, dual_values = (None, None, None)
                     else:
                         error_msg = None
                         control = self._output_mapping('control').value
                         state = self._output_mapping('state').value
+                        dual_values = list(self.prob.solution.dual_vars.values())
                 except Exception as e:
                     error_msg = 'Solver encountered an error. {0}'.format(e)
-                    control, state = (None, None)
+                    control, state, dual_values = (None, None, None)
 
             elif isinstance(self.prob,casadi.Opti):
                 # Casadi will raise an exception if solve() detects an infeasible problem
@@ -86,17 +87,17 @@ class ControllerBase(ABC):
                         error_msg = None
                         control = sol.value(self._output_mapping('control'))
                         state = sol.value(self._output_mapping('state'))
-
+                        dual_values = sol.value(self.prob.lam_g)
                     else:
                         error_msg = 'Solver was not successful with return status: {0}'.format(sol.stats()['return_status'])
-                        control, state = (None, None)
+                        control, state, dual_values = (None, None, None)
                 except Exception as e:
                     error_msg = 'Solver encountered an error. {0}'.format(e)
-                    control, state = (None, None)
+                    control, state, dual_values = (None, None, None)
 
             else:
                 raise Exception('Optimization problem type not supported!')
         else:
             raise Exception('Optimization problem is not initialised!')
 
-        return control, state, error_msg
+        return control, state, error_msg, dual_values

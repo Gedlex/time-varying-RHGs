@@ -19,11 +19,11 @@ class EMPC(ControllerBase):
         super().__init__(sys, params, **kwargs)
 
     def _init_problem(self, sys, params, solver: Union[Literal['cvxpy'], Literal['casadi']] = 'cvxpy'):
-        # Allocate placeholder problem (casadi or cvxpy)
-        if solver == 'casadi':
-            self.prob = casadi.Opti()
-        else:
+        # Allocate placeholder problem (cvxpy or casadi)
+        if solver == 'cvxpy':
             self.prob = cp.Problem(cp.Minimize(0))
+        else:
+            self.prob = casadi.Opti()
 
     def _setup_problem(self, t = 0, x_0 = None, x_T = None, periodic = False):
         # Define decision variables (cvxpy or casadi)
@@ -41,28 +41,32 @@ class EMPC(ControllerBase):
         objective = 0
         for k in range(self.params.N):
             objective += self.params.stage_cost(self.x[:,k], self.u[:,k], t=t+k)
-        
-        # Define constraints
-        constraints = [] if x_0 is None else [self.x[:, 0] == x_0]
-        for k in range(self.params.N):
-            # Dynamics
-            constraints += [self.x[:,k+1].reshape((self.sys.n,1)) == self.sys.f(self.x[:,k], self.u[:,k], t=t+k)]
 
-            # State and input constraints
-            constraints += [self.params.h_x(self.x[:,k], t=t+k) <= 0]
-            constraints += [self.params.h_u(self.u[:,k], t=t+k) <= 0]
-        constraints += [self.params.h_x(self.x[:,self.params.N], t=t+self.params.N) <= 0]
-        constraints += [] if x_T is None  else [self.x[:,self.params.N] == x_T]
-        constraints += [] if not periodic else [self.x[:,0] == self.x[:,self.params.N]]
+        # Define dynamics constraints
+        self.dynamics_constraints = []
+        for k in range(self.params.N):
+            self.dynamics_constraints += [self.x[:,k+1].reshape((self.sys.n,1)) == self.sys.f(self.x[:,k], self.u[:,k], t=t+k)]
+
+        # Define input constraints
+        self.input_constraints = [] if x_0 is None else [self.x[:, 0] == x_0]
+        for k in range(self.params.N):
+            self.input_constraints += [self.params.h_u(self.u[:,k], t=t+k) <= 0]
+
+        # Define state constraints
+        self.state_constraints = [] if x_0 is None else [self.x[:, 0] == x_0]
+        for k in range(self.params.N+1):
+            self.state_constraints += [self.params.h_x(self.x[:,k], t=t+k) <= 0]
+
+        # Define terminal constraints
+        self.state_constraints += [] if x_T is None  else [self.x[:,self.params.N] == x_T]
+        self.state_constraints += [] if not periodic else [self.x[:,0] == self.x[:,self.params.N]]
 
         # Setup solver (cvxpy or casadi)
         if isinstance(self.x, cp.Expression):
-            self.prob = cp.Problem(cp.Minimize(objective), constraints)
+            self.prob = cp.Problem(cp.Minimize(objective), self.dynamics_constraints + self.state_constraints + self.input_constraints)
         else:
             self.prob.minimize(objective)
-            self.prob.subject_to(constraints)
-            self.prob.solver('ipopt', {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0})
-
+            self.prob.subject_to(self.dynamics_constraints + self.state_constraints + self.input_constraints)
 
     def _set_parameters(self, **kwargs):
         self._setup_problem(**kwargs)

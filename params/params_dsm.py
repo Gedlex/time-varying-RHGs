@@ -197,7 +197,7 @@ class DSMPCParams:
             return X, c_x, U, c_u
 
     class sys:
-        def __init__(self, params, **kwargs):
+        def __init__(self, params, verbose=False, **kwargs):
             # Define system dimensions
             self.n = 2 * params.M
             self.m = 2 * params.M
@@ -214,6 +214,10 @@ class DSMPCParams:
             self.d = np.stack([ np.vstack( [np.array([[-params.ctrl.consumption[t,v]], [0]]) for v in range(params.M)]) for t in range(params.T)])
             self.C = np.stack([ np.eye(self.n, self.n) for t in range(params.T)])
             self.D = np.zeros((self.T, self.n, self.m))
+
+            # Print information
+            if verbose:
+                DSMPCParams._check_invertibility(A=self.A)
         
     @staticmethod
     def _load_data(city='newyork'):
@@ -273,6 +277,23 @@ class DSMPCParams:
                 print(f'{key} is positive semi-definite for all times.')
             else:
                 print(f'\033[93mWarning: {key} is not positive semi-definite at times t = {np.where(~check)[0]}.\033[0m')
+
+            # Add to dictionary
+            results[key] = check
+        return results
+    
+    @staticmethod
+    def _check_invertibility(**kwargs):
+        results = {}
+        for key, value in kwargs.items():
+            # Check invertibility for each time t
+            check = np.array([not np.isclose(np.linalg.det(value[k,:]), 0) for k in range(value.shape[0])])
+
+            # Print results
+            if np.all(check):
+                print(f'{key} is invertible for all times.')
+            else:
+                print(f'\033[93mWarning: {key} is not invertible at times t = {np.where(~check)[0]}.\033[0m')
 
             # Add to dictionary
             results[key] = check
