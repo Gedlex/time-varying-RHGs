@@ -50,12 +50,12 @@ class ControllerBase(ABC):
         '''
         raise NotImplementedError
 
-    def solve(self, solver=None, opts={}, verbose=False, **kwargs):
+    def solve(self, solver=None, options={}, verbose=False, **kwargs):
         if self.prob != None:
             if isinstance(self.prob,cvxpy.Problem):
                 try:
                     self._set_parameters(**kwargs)
-                    self.prob.solve(solver=solver, **opts, verbose=verbose)
+                    self.prob.solve(solver=solver, **options, verbose=verbose)
 
                     if self.prob.status == cvxpy.OPTIMAL:
                         error_msg = None
@@ -75,21 +75,22 @@ class ControllerBase(ABC):
                 try :
                     self._set_parameters(**kwargs)
 
-                    # Set solver options and solve
-                    if opts is {}:
-                        if verbose:
-                            opts = {'ipopt.print_level': 5, 'print_time': 1}
-                        else:
-                            opts = {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0}
-                    solver = 'ipopt' if solver is None else solver
-                    self.prob.solver(solver, opts)
+                    # Set options and solver
+                    options = options or ({'ipopt.print_level': 5, 'print_time': 1} if verbose else {'ipopt.print_level': 0, 'ipopt.sb': 'yes', 'print_time': 0})
+                    solver = solver or 'ipopt'
+                    self.prob.solver(solver, options)
                     sol = self.prob.solve()
 
                     if sol.stats()['success']:
                         error_msg = None
                         control = sol.value(self._output_mapping('control'))
                         state = sol.value(self._output_mapping('state'))
-                        dual_values = sol.value(self.prob.lam_g)
+                        lam_g = sol.value(self.prob.lam_g)
+                        dual_values, cidx = [], 0
+                        for val in self.prob.advanced.constraints():
+                            n = val.numel()
+                            dual_values.append(lam_g[cidx:cidx+n].reshape(-1,1))
+                            cidx += n
                         solver_stats = sol.stats()
                     else:
                         error_msg = 'Solver was not successful with return status: {0}'.format(sol.stats()['return_status'])
