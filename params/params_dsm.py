@@ -285,8 +285,10 @@ class DSMPCParams:
                         print(f'{key} is positive semi-definite at times t = {np.where(~check & check_semi)[0]} and positive definite for all other times.')
                     else:
                         print(f'{key} is positive semi-definite for all times.')
-                elif np.any(check_semi):
+                elif np.any(~check & check_semi):
                     print(f'\033[93mWarning: {key} is indefinite at times t = {np.where(~check_semi)[0]}, positive semi-definite at times t = {np.where(~check & check_semi)[0]}, and positive definite for all other times.\033[0m')
+                elif np.any(check):
+                    print(f'\033[93mWarning: {key} is indefinite at times t = {np.where(~check_semi)[0]} and positive definite for all other times.\033[0m')
                 else:
                     print(f'\033[93mWarning: {key} is indefinite for all times.\033[0m')
 
