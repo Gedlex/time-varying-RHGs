@@ -266,28 +266,40 @@ class DSMPCParams:
         return 0
     
     @staticmethod
-    def _check_convexity(**kwargs):
+    def _check_convexity(**kwargs) -> dict:
         results = {}
         for key, value in kwargs.items():
-            # Check positive semi-definiteness for each time t
-            check = np.array([DSMPCParams._is_pos_semi_def(value[k,:]) for k in range(value.shape[0])])
-
+            # Check positive definiteness for all times
+            check_semi = False
+            check = np.array([DSMPCParams._is_pos_def(value[k]) for k in range(len(value))])
+            
             # Print results
             if np.all(check):
-                print(f'{key} is positive semi-definite for all times.')
+                print(f'{key} is positive definite for all times.')
             else:
-                print(f'\033[93mWarning: {key} is not positive semi-definite at times t = {np.where(~check)[0]}.\033[0m')
+                # Check positive semi-definiteness for all times
+                check_semi = np.array([DSMPCParams._is_pos_semi_def(value[k]) for k in range(len(value))])
+
+                if np.all(check_semi):
+                    if np.any(check):
+                        print(f'{key} is positive semi-definite at times t = {np.where(~check & check_semi)[0]} and positive definite for all other times.')
+                    else:
+                        print(f'{key} is positive semi-definite for all times.')
+                elif np.any(check_semi):
+                    print(f'\033[93mWarning: {key} is indefinite at times t = {np.where(~check_semi)[0]}, positive semi-definite at times t = {np.where(~check & check_semi)[0]}, and positive definite for all other times.\033[0m')
+                else:
+                    print(f'\033[93mWarning: {key} is indefinite for all times.\033[0m')
 
             # Add to dictionary
-            results[key] = check
+            results[key] = np.where(check, "pos_def", np.where(check_semi, "semi_def", "indef"))
         return results
     
     @staticmethod
     def _check_invertibility(**kwargs):
         results = {}
         for key, value in kwargs.items():
-            # Check invertibility for each time t
-            check = np.array([not np.isclose(np.linalg.det(value[k,:]), 0) for k in range(value.shape[0])])
+            # Check invertibility for all times
+            check = np.array([not np.isclose(np.linalg.det(value[k,:]), 0) for k in range(len(value))])
 
             # Print results
             if np.all(check):
@@ -298,12 +310,20 @@ class DSMPCParams:
             # Add to dictionary
             results[key] = check
         return results
+    
+    @staticmethod
+    def _is_pos_semi_def(A, tol=1e-8):
+        if DSMPCParams._is_pos_def(A):
+            return True
+        else:
+            E = np.linalg.eigvalsh(A)
+            return np.all(E > -tol)
 
     @staticmethod
-    def _is_pos_semi_def(A):
+    def _is_pos_def(A):
         if np.array_equal(A, A.T):
             try:
-                np.linalg.cholesky(A + 1E-14*np.eye(A.shape[0]))
+                np.linalg.cholesky(A)
                 return True
             except np.linalg.LinAlgError:
                 return False
