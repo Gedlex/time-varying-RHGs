@@ -8,7 +8,6 @@
 '''
 
 from .controller_base import ControllerBase
-from typing import Union, Literal
 import cvxpy as cp
 import casadi
 
@@ -18,12 +17,14 @@ class EMPC(ControllerBase):
     def __init__(self, sys, params, **kwargs):
         super().__init__(sys, params, **kwargs)
 
-    def _init_problem(self, sys, params, solver: Union[Literal['cvxpy'], Literal['casadi']] = 'cvxpy'):
+    def _init_problem(self, sys, params, solver = 'cvxpy'):
         # Allocate placeholder problem (cvxpy or casadi)
         if solver == 'cvxpy':
             self.prob = cp.Problem(cp.Minimize(0))
-        else:
+        elif solver == 'casadi':
             self.prob = casadi.Opti()
+        else:
+            raise ValueError('Invalid solver specified. Choose either cvxpy or casadi.')
 
     def _setup_problem(self, t = 0, x_0 = None, x_T = None, periodic = False):
         # Define decision variables (cvxpy or casadi)
@@ -35,7 +36,7 @@ class EMPC(ControllerBase):
             del self.prob
             self.prob = casadi.Opti()
             self.x = self.prob.variable(self.sys.n, self.params.N + 1)
-            self.u = self.prob.variable(self.sys.m, self.params.N)            
+            self.u = self.prob.variable(self.sys.m, self.params.N)
 
         # Define objective
         objective = 0
@@ -48,7 +49,7 @@ class EMPC(ControllerBase):
             self.dynamics_constraints += [self.x[:,k+1].reshape((self.sys.n,1)) == self.sys.f(self.x[:,k], self.u[:,k], t=t+k)]
 
         # Define input constraints
-        self.input_constraints = [] if x_0 is None else [self.x[:, 0] == x_0]
+        self.input_constraints = []
         for k in range(self.params.N):
             self.input_constraints += [self.params.h_u(self.u[:,k], t=t+k) <= 0]
 

@@ -46,6 +46,10 @@ class LinearSystem(SystemBase):
         idx = self._wrap_time_index(t) # Wrap time index
         return self.C[idx,:] @ x.reshape((self.n, 1)) + self.D[idx,:] @ u.reshape((self.m, 1))
     
+    def f_grad(self, *args, t=None):
+        idx = self._wrap_time_index(t)
+        return self.A[idx,:].T, self.B[idx,:].T
+    
     def _wrap_time_index(self, t):
         if isinstance(t, int):
             return t % self.T

@@ -113,6 +113,27 @@ class DSMPCParams:
 
             return self.U[idx,:] @ u - self.c_u[idx,:]
         
+        def stage_cost_grad(self, x, u, t):
+            # Wrap time index
+            idx = DSMPCParams._wrap_time_index(t, self.T)
+
+            # Compute gradient
+            grad_x = self.Q[idx,:] @ x
+            grad_u = self.R[idx,:] @ u + self.c[idx,:].T
+            return grad_x, grad_u
+
+        def h_x_grad(self, x, t):
+            # Wrap time index
+            idx = DSMPCParams._wrap_time_index(t, self.T)
+
+            return self.X[idx,:].T, np.zeros((self.U[idx,:].shape[1], self.X[idx,:].shape[0]))
+        
+        def h_u_grad(self, u, t):
+            # Wrap time index
+            idx = DSMPCParams._wrap_time_index(t, self.T)
+
+            return np.zeros((self.X[idx,:].shape[1], self.U[idx,:].shape[0])), self.U[idx,:].T
+        
         def _compute_cost_matrices(self, params):
             # Compute cost matrices
             c = [[ np.ndarray for _ in range(params.M)] for _ in range(params.T)]
@@ -323,11 +344,11 @@ class DSMPCParams:
 
     @staticmethod
     def _is_pos_def(A):
-        if np.array_equal(A, A.T):
+        if np.allclose(A, A.T):
             try:
                 np.linalg.cholesky(A)
                 return True
             except np.linalg.LinAlgError:
                 return False
         else:
-            return ValueError('Matrix is not symmetric')
+            raise ValueError('Matrix is not symmetric')

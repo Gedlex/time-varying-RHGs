@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from typing import Union, Literal
 import cvxpy
 import casadi
+import warnings
 
 class ControllerBase(ABC):
 
@@ -25,15 +26,17 @@ class ControllerBase(ABC):
         This method must be implemented by the controller to define the optimization problem
         '''
         raise NotImplementedError
-
-    @abstractmethod
+    
     def _set_parameters(self, **kwargs):
         '''
         Most controllers require setting parameters of the optimization problem like for example the initial condition
 
         This method will be called to set parameters right before calling the solver
         '''
-        return NotImplementedError
+        if kwargs:
+            raise NotImplementedError(f'_set_parameters is not implemented for this controller. Received parameters: {", ".join(f"{k}={v}" for k, v in kwargs.items())}.')
+        else:
+            return NotImplemented
     
     @abstractmethod 
     def _output_mapping(self, output: Union[Literal['control'], Literal['state']]):
