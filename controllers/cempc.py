@@ -64,11 +64,14 @@ class CEMPC(ControllerBase):
         else:
             objective = cp.minimum(*[cp.lambda_min(LMI) for LMI in LMIs])
 
+        # Define constraints
+        constraints = [] # [LMI[:self.sys.n,:self.sys.n] >> 1E-8 * np.eye(self.sys.n) for LMI in LMIs]
+
         # Setup solver
-        prob = cp.Problem(cp.Maximize(objective))
+        prob = cp.Problem(cp.Maximize(objective), constraints)
 
         # Solve problem
-        prob.solve(solver='SCS', max_iters=10000, verbose=False)
+        prob.solve(solver='SCS', max_iters=10000, eps=1E-5, verbose=False)
         print(f"Convexification problem solved with minimal eigenvalue: {prob.value}")
 
         # Get solution
@@ -143,11 +146,12 @@ class CEMPC(ControllerBase):
         grad_x, grad_u = np.split(grad, [x.shape[0]])
         return grad_x, grad_u + obj.c[idx,:].reshape(-1)
 
-    def _check_convexity(self, **kwargs) -> dict:
+    @staticmethod
+    def _check_convexity(**kwargs) -> dict:
         results = {}
         for key, value in kwargs.items():
             # Check positive definiteness for all times
-            check = np.array([self._is_pos_def(value[k]) for k in range(len(value))])
+            check = np.array([CEMPC._is_pos_def(value[k]) for k in range(len(value))])
 
             # Print results
             if np.all(check):
