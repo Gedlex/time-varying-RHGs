@@ -8,33 +8,34 @@
 '''
 import matplotlib.figure as figure
 
-def adjust_margins(fig : figure.Figure, width=None, height=None, top=None, bottom=None, wspace=None, hspace=None, textwidth=5.90552, **kwargs):
-    # Get default figure size and spaces
-    width = fig.get_figwidth() if width is None else width
-    height = fig.get_figheight() if height is None else height
-    wspace = fig.subplotpars.wspace* fig.get_figwidth() if wspace is None else wspace
-    hspace = fig.subplotpars.hspace* fig.get_figheight() if hspace is None else hspace
-
-    # Check width
-    if textwidth < width:
-        raise ValueError('The figure width specified is too large for the textwidth specified.')
-
+def adjust_margins(fig : figure.Figure, width=None, height=None, top=None, bottom=None, wspace=None, hspace=None, pad=0.5, textwidth=5.90552) -> figure.Figure:
     # Change layout engine for export
     if (fig.get_layout_engine() is not None):
         fig.set_layout_engine(None)
 
-    # Get current subplot parameters
-    fig.tight_layout(pad=0.5)
+    # Get figure size
+    width = fig.get_figwidth() if width is None else width
+    height = fig.get_figheight() if height is None else height
+
+    # Check width
+    if textwidth < width:
+        raise ValueError('The figure width specified is too large for the specified textwidth.')
+
+    # Compute tight margins
+    fig.tight_layout(pad=pad)
     parms = fig.subplotpars
 
-    # Compute adjusted figure height
+    # Get margins
     top_inch = (1 - parms.top) * fig.get_figheight() if top is None else top
     bottom_inch = parms.bottom * fig.get_figheight() if bottom is None else bottom
+    wspace = parms.wspace * fig.get_figwidth() if wspace is None else wspace
+    hspace = parms.hspace * fig.get_figheight() if hspace is None else hspace
+
+    # Compute adjusted figure height
     adjusted_height = height + top_inch + bottom_inch
 
     # Resize figure
     fig.set_size_inches(textwidth, adjusted_height)
-    fig.canvas.draw()
 
     # Update margins
     margin = 1 - (width/textwidth)
