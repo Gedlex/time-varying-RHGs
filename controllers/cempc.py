@@ -37,15 +37,12 @@ class CEMPC(ControllerBase):
         for k in range(self.params.N):
             self.dynamics_constraints += [self.x[:,k+1].reshape((self.sys.n,1)) == self.sys.f(self.x[:,k], self.u[:,k], t=k)]
 
-        # Define input constraints
+        # Define state and input constraints
         self.input_constraints = []
+        self.state_constraints = []
         for k in range(self.params.N):
             self.input_constraints += [self.params.h_u(self.u[:,k], t=k) <= 0]
-
-        # Define state constraints
-        self.state_constraints = []
-        for k in range(self.params.N+1):
-            self.state_constraints += [self.params.h_x(self.x[:,k], t=k) <= 0]
+            self.state_constraints += [self.params.h_x(self.x[:,k], t=k) <= 0]            
         self.state_constraints += [self.x[:,0] == self.x[:,self.params.N]]
 
         # Setup solver
