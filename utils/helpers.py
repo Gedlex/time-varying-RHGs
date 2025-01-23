@@ -9,20 +9,22 @@
 import matplotlib.figure as figure
 
 def adjust_margins(fig : figure.Figure, width=None, height=None, top=None, bottom=None, wspace=None, hspace=None, textwidth=5.90552, **kwargs):
-    # Get default figure size
+    # Get default figure size and spaces
     width = fig.get_figwidth() if width is None else width
     height = fig.get_figheight() if height is None else height
+    wspace = fig.subplotpars.wspace* fig.get_figwidth() if wspace is None else wspace
+    hspace = fig.subplotpars.hspace* fig.get_figheight() if hspace is None else hspace
 
     # Check width
     if textwidth < width:
         raise ValueError('The figure width specified is too large for the textwidth specified.')
-    
+
     # Change layout engine for export
     if (fig.get_layout_engine() is not None):
         fig.set_layout_engine(None)
 
     # Get current subplot parameters
-    fig.tight_layout(pad=0)
+    fig.tight_layout(pad=0.5)
     parms = fig.subplotpars
 
     # Compute adjusted figure height
@@ -40,8 +42,8 @@ def adjust_margins(fig : figure.Figure, width=None, height=None, top=None, botto
                         right = (1 - margin/2),
                         top = 1 - top_inch/adjusted_height,
                         bottom = bottom_inch/adjusted_height,
-                        wspace = wspace,
-                        hspace = hspace)
+                        wspace = wspace/adjusted_height,
+                        hspace = hspace/adjusted_height)
 
     # Return modified figure
     return fig
