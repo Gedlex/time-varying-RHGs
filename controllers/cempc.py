@@ -65,7 +65,7 @@ class CEMPC(ControllerBase):
             objective = cp.minimum(*[cp.lambda_min(LMI) for LMI in LMIs])
 
         # Define constraints
-        constraints = [] # [LMI[:self.sys.n,:self.sys.n] >> 1E-8 * np.eye(self.sys.n) for LMI in LMIs]
+        constraints = [] # [LMI[:self.sys.n,:self.sys.n] >> 0 for LMI in LMIs]
 
         # Setup solver
         prob = cp.Problem(cp.Maximize(objective), constraints)
@@ -74,20 +74,18 @@ class CEMPC(ControllerBase):
         prob.solve(solver='SCS', max_iters=10000, eps=1E-5, verbose=False)
         print(f"Convexification problem solved with minimal eigenvalue: {prob.value}")
 
-        # Get solution
+        # Check if problem was solved successfully
         if prob.status == cp.OPTIMAL:
+            # Get solution
             K_sol = [K_t.value for K_t in K]
             self.LMIs_sol = self._construct_LMIs(K_sol)
 
             # Save convexified cost matrices to params
             self.params.K = np.stack(K_sol)
             self.params.M = np.stack(self.LMIs_sol)
-            self.params.M_x  = self.params.M[:,:self.sys.n,:self.sys.n]
-            self.params.M_u  = self.params.M[:,-self.sys.m:,-self.sys.m:]
-            self.params.M_xu = self.params.M[:,:self.sys.n,-self.sys.m:]
 
             # Check convexity
-            self._check_convexity(LMIs=self.LMIs_sol, M_x=self.params.M_x, M_u=self.params.M_u)
+            self._check_convexity(LMIs=self.LMIs_sol)
 
             # Save convexified stage cost and gradient to params
             self.params.stage_cost = MethodType(CEMPC._convexified_stage_cost, self.params)
@@ -139,7 +137,7 @@ class CEMPC(ControllerBase):
 
         # Stack state and control
         if not isinstance(x, np.ndarray):
-            raise ValueError(f"Invalid input type to convexified stage cost. Expected cp.Expression, casadi.MX, or np.ndarray, got {type(x)}.")
+            raise ValueError(f"Invalid input type to convexified stage cost. Expected np.ndarray, got {type(x)}.")
 
         # Compute gradient
         grad = 2 * obj.M[idx,:] @ np.hstack([x, u])
