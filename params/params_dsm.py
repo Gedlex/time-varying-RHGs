@@ -13,12 +13,12 @@ import cvxpy as cp
 from scipy.linalg import block_diag
 
 class DSMPCParams:
-    def __init__(self, T=24, **kwargs):
+    def __init__(self, T=24, M=10, M_passive=5, **kwargs):
         self.name = 'DSMPC'
 
         # Define number of agents (active and passive)
-        self.M = 10
-        self.M_passive = 5
+        self.M = M
+        self.M_passive = M_passive
 
         # Define period length of system and constraints
         self.T = T
@@ -45,7 +45,7 @@ class DSMPCParams:
             # Define constraint parameters
             self.q_max =  15* np.ones([params.T, params.M])
             self.zeta_max=10* np.ones([params.T, params.M])
-            self.zeta_max[-1,:] = 1
+            self.zeta_max[23::24,:] = 1
             self.zeta_min = -self.zeta_max
             self.s_max  = 10.5*np.ones([params.T, params.M])
             self.s_min  =-self.s_max
@@ -228,6 +228,11 @@ class DSMPCParams:
             # Define constants
             alpha = 0.9**(1/params.T) * np.ones((params.T, params.M))
             beta  = 0.9 * np.ones((params.T, params.M))
+
+            # Update attributes with keyword arguments
+            for key, value in kwargs.items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
 
             # Define system dynamics
             self.A = np.stack([block_diag(*[np.array([[1, 0], [0, alpha[t,v]]]) for v in range(params.M)]) for t in range(params.T)])

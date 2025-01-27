@@ -8,6 +8,8 @@
 '''
 
 from .controller_base import ControllerBase
+from systems import LinearSystem
+from params import DSMPCParams
 from types import MethodType
 import numpy as np
 import cvxpy as cp
@@ -20,6 +22,12 @@ class CEMPC(ControllerBase):
         super().__init__(sys, params, **kwargs)
 
     def _init_problem(self, sys, params):
+        # Check input arguments
+        if not isinstance(sys, LinearSystem):
+            raise ValueError(f"Invalid system type. Expected LinearSystem, got {type(sys)}")
+        if not isinstance(params, DSMPCParams.ctrl):
+            raise ValueError(f"Invalid parameters type. Expected DSMPCParams.ctrl, got {type(params)}")
+
         # Define decision variables
         self.x = cp.Variable((self.sys.n, self.params.N + 1))
         self.u = cp.Variable((self.sys.m, self.params.N))
