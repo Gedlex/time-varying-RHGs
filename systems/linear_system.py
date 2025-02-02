@@ -16,7 +16,7 @@ class LinearSystem(SystemBase):
         super().__init__(params)
 
         # Check shape of system matrices
-        assert params.A.shape[-2:] == (self.n, self.n), 'A must have shape (,n,n)'
+        assert params.A.shape[-2:] == (self.n, self.n), 'A must have shape (t,n,n)'
         assert params.B.shape[-2:] == (self.n, self.m), 'B must have shape (t,n,m)'
         assert params.C.shape[-1] == self.n, 'C must have shape (t, num_output, n)'
         assert params.D.shape[-1] == self.m, 'D must have shape (t, num_output, m)'
