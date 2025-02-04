@@ -8,7 +8,7 @@
 '''
 import matplotlib.figure as figure
 
-def adjust_margins(fig : figure.Figure, width=None, height=None, top=None, bottom=None, wspace=None, hspace=None, pad=0.5, textwidth=5.90552) -> figure.Figure:
+def adjust_margins(fig : figure.Figure, width=None, height=None, top=None, bottom=None, wspace=None, hspace=None, wshift=None, pad=0.5, textwidth=5.90552) -> figure.Figure:
     # Change layout engine for export
     if (fig.get_layout_engine() is not None):
         fig.set_layout_engine(None)
@@ -37,10 +37,14 @@ def adjust_margins(fig : figure.Figure, width=None, height=None, top=None, botto
     # Resize figure
     fig.set_size_inches(textwidth, adjusted_height)
 
-    # Update margins
+    # Compute adjusted margins
     margin = 1 - (width/textwidth)
-    fig.subplots_adjust(left = margin/2,
-                        right = (1 - margin/2),
+    left = margin/2 * (1 + wshift) if wshift is not None else margin/2
+    right = (1 - margin/2 * (1 - wshift)) if wshift is not None else (1 - margin/2)
+
+    # Update margins
+    fig.subplots_adjust(left = left,
+                        right = right,
                         top = 1 - top_inch/adjusted_height,
                         bottom = bottom_inch/adjusted_height,
                         wspace = wspace/adjusted_height,
