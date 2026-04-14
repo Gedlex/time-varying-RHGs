@@ -7,7 +7,6 @@ This repository contains the Python code that accompanies the master thesis:
 
 ## Prerequisites
 
-- Python 3.9
 - Casadi
 - Conda (optional)
 
@@ -18,7 +17,7 @@ This repository contains the Python code that accompanies the master thesis:
 3. Create a [Conda](https://docs.anaconda.com/miniconda/miniconda-install/) environment to make sure all the necessary packages are installed
 
     ```bash
-        conda env create --name time-varying-rhgs --file=environments.yml
+        conda env create --name time-varying-rhgs --file=environment.yml
         conda activate time-varying-rhgs
     ```
 
